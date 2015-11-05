@@ -4,7 +4,6 @@
 
 # All the potentially messy data cleanup
 
-attach(dat)
 capsd=c(names(dat)[grep("05",names(dat))])
 capsd2=c("Sydney","Melbourne","Brisbane","Adelaide","Perth","Hobart","Darwin","Canberra")
 
@@ -32,11 +31,10 @@ qc <- data.frame(season = c("1_djf","1_djf", "2_mam", "2_mam", "2_mam", "3_jja",
 qc
 #library(plyr)
 #ddply(qc, c("season"), summarise, rain = sum(mean_rain))
-qc2 <- sqldf::sqldf("select season, sum(mean_rain) as sumrain from qc group by season")
-qc3 <-
-  cbind(dat2[1:4,c("year","order","season",names(dat2)[grep("105",names(dat2))])],
-        qc2)
+qc2 <- sqldf("select season, sum(mean_rain) as sumrain from qc group by season")
+qc3 <- cbind(dat2[1:4,c("year","order","season",names(dat2)[grep("105",names(dat2))])],
+             qc2)
 names(qc3)
-plot(qc3[,"105"], qc3$sumrain, xlim = c(0,400), ylim = c(0,400))
+plot(qc3[,"X105"], qc3$sumrain, xlim = c(0,400), ylim = c(0,400))
 abline(0,1)
 # bom stats are higher, general agreement

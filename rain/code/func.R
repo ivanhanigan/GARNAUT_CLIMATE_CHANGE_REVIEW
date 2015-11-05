@@ -3,7 +3,5 @@
 # Maintainer: Who to complain to <yourfault@somewhere.net>
 
 # Functions for the project
-
-myFunc <- function(){
-
-}
+### Load any needed libraries
+library(sqldf)

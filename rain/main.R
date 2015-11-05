@@ -6,7 +6,7 @@
 # It should do very little except call the other files
 
 ### Set the working directory
-setwd("i:/My Dropbox/projects/IvanPhD/Papers/opensoftware-restricteddata-casestudy")
+setwd("~/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/rain")
 
 
 ### Set any global variables here
@@ -18,7 +18,7 @@ setwd("i:/My Dropbox/projects/IvanPhD/Papers/opensoftware-restricteddata-casestu
 
 
 ### Run the code
+source("code/func.R")
 source("code/load.R")
 source("code/clean.R")
-source("code/func.R")
 source("code/do.R")
