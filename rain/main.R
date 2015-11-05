@@ -1,4 +1,4 @@
-# Project: rain
+# Project: opensoftware-restricteddata-casestudy
 # Author: Your Name
 # Maintainer: Who to complain to <yourfault@somewhere.net>
 
@@ -6,7 +6,7 @@
 # It should do very little except call the other files
 
 ### Set the working directory
-setwd("/home/ivan_hanigan/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/rain")
+setwd("i:/My Dropbox/projects/IvanPhD/Papers/opensoftware-restricteddata-casestudy")
 
 
 ### Set any global variables here

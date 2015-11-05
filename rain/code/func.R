@@ -1,4 +1,4 @@
-# Project: rain
+# Project: opensoftware-restricteddata-casestudy
 # Author: Your Name
 # Maintainer: Who to complain to <yourfault@somewhere.net>
 
