@@ -14,19 +14,21 @@
   projdir  <- "~/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/drought_futures"
   setwd(projdir)
   dir()
+  library(reshape)
+  library(sqldf)
   
   
 #+end_src
 
 * projections
-** ranfall future probs
+** rain future probs
 *** COMMENT get_sd_codes
 #+name:get_sd_codes
-#+begin_src R :session *R* :tangle code/get_sd_codes.R :exports none :eval no
+#+begin_src R :session *shell* :tangle code/get_sd_codes.R :exports none :eval no
   #### name:get_sd_codes ####
   library(rpostgrestools)
-  ch <- connect2postgres2("postgis_hanigan")
-  
+  ch <- connect2postgres2("gislibrary")
+  pgListTables(ch, "abs_sd")
   sd  <- dbGetQuery(ch, "select sdcode07, sdname07
   from abs_sd.aussd07
   where sdcode07 < '200'")
@@ -49,10 +51,7 @@
 *** COMMENT rain future prob dry
 #+name:rain future prob
 #+begin_src R :session *shell* :tangle code/rain_future_prob_dry.R :exports none :eval no
-  #### name:rain future prob ####
-  library(reshape)
-  library(sqldf)
-  
+  #### name:rain future prob dry ####  
   indir  <- "~/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/rain/data_derived"
   dir(indir)
   
@@ -71,11 +70,12 @@
   dat3 <- melt(dat2, c("year","order","season"))
   str(dat3)
   
+  # this is just NSW sds
   baseline <- sqldf("select *
   from dat3
   where variable like 'X1%'
     and year = 1990
-  ")
+  ", drv = "SQLite")
   names(dat3) <- gsub("order", "ord1", names(dat3))
   head(dat3)
   
@@ -88,6 +88,7 @@
   head(joind, 20)
   
   # need to aggregate the two far north west sds (160 + 135)
+  # for suicide research
   joind$sd_group <- joind$variable
   joind$sd_group <- gsub("X135",   "North and Far Western", joind$sd_group) 
   joind$sd_group <- gsub("X160",   "North and Far Western", joind$sd_group) 
@@ -116,6 +117,11 @@
   png("figures_and_tables/qc_dry_props_north_far_west.png")
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
+  qc <- subset(joind, sd_group == "Central West")
+  head(qc)
+  png("figures_and_tables/qc_dry_props_central_west.png")
+  plot(row.names(qc), qc$proportion, type = "l")
+  dev.off()
   
   # now need to disaggregate each month of the 3 mo seasons
   seasons <- data.frame(season = c("djf", "djf","djf","mam", "mam","mam","jja","jja","jja", "son","son","son"),
@@ -134,7 +140,7 @@
   head(joind_mnthly, 24)
   
   qc <- subset(joind_mnthly, sd_group == "Central West")
-  png("figures_and_tables/qc_dry_props_central_west.png")
+  png("figures_and_tables/qc_dry_props_central_west.png", width=1200, height=600)
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   dir()
@@ -145,13 +151,100 @@
 *** COMMENT rain future prob wet
 #+name:rain future prob
 #+begin_src R :session *shell* :tangle code/rain_future_prob_wet.R :exports none :eval no
-  #### name:rain future prob ####
+  #### name:rain future prob wet ####
   indir  <- "~/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/rain/data_derived"
   dir(indir)
   
   # wet
   infile  <- "A1FIR2_RainSD07_by_season.csv"
+  dat <- read.csv(file.path(indir, infile))
+  str(dat)
   
+  # construct a time series for each SD of proportional changes
+  # first reshape, just NSW sds
+  names(dat)
+  sdlist <- names(dat)[grep("X1", names(dat))]
+  dat2 <- dat[,c("year", "order", "season", sdlist)]
+  str(dat2)
+  
+  dat3 <- melt(dat2, c("year","order","season"))
+  str(dat3)
+  
+  # this is just NSW sds
+  baseline <- sqldf("select *
+  from dat3
+  where variable like 'X1%'
+    and year = 1990
+  ", drv = "SQLite")
+  names(dat3) <- gsub("order", "ord1", names(dat3))
+  head(dat3)
+  
+  
+  joind <- sqldf("select t1.year, t1.ord1, t1.season, t1.variable, t1.value/t2.value as proportion
+  from dat3 t1
+  left join baseline t2
+  on t1.season = t2.season and t1.variable = t2.variable
+  ", drv = "SQLite")
+  head(joind, 20)
+  
+  # need to aggregate the two far north west sds (160 + 135)
+  # for suicide research
+  joind$sd_group <- joind$variable
+  joind$sd_group <- gsub("X135",   "North and Far Western", joind$sd_group) 
+  joind$sd_group <- gsub("X160",   "North and Far Western", joind$sd_group) 
+  
+  
+  joind$sd_group <- gsub("X105",          "Sydney", joind$sd_group) 
+  joind$sd_group <- gsub("X110",          "Hunter", joind$sd_group) 
+  joind$sd_group <- gsub("X115",       "Illawarra", joind$sd_group) 
+  joind$sd_group <- gsub("X120",  "Richmond-Tweed", joind$sd_group) 
+  joind$sd_group <- gsub("X125", "Mid-North Coast", joind$sd_group) 
+  joind$sd_group <- gsub("X130",        "Northern", joind$sd_group) 
+  joind$sd_group <- gsub("X140",    "Central West", joind$sd_group) 
+  joind$sd_group <- gsub("X145",   "South Eastern", joind$sd_group) 
+  joind$sd_group <- gsub("X150",    "Murrumbidgee", joind$sd_group) 
+  joind$sd_group <- gsub("X155",          "Murray", joind$sd_group) 
+  
+  joind <- sqldf("select year, ord1, season, sd_group, avg(proportion) as proportion
+  from joind
+  group by  year, ord1, season, sd_group
+  ", drv = "SQLite")
+  str(joind)
+  head(joind)
+  data.frame(table(joind$sd_group))
+  qc <- subset(joind, sd_group == "North and Far Western")
+  head(qc)
+  png("figures_and_tables/qc_wet_props_north_far_west.png")
+  plot(row.names(qc), qc$proportion, type = "l")
+  dev.off()
+  qc <- subset(joind, sd_group == "Central West")
+  head(qc)
+  png("figures_and_tables/qc_wet_props_central_west.png")
+  plot(row.names(qc), qc$proportion, type = "l")
+  dev.off()
+  
+  # now need to disaggregate each month of the 3 mo seasons
+  seasons <- data.frame(season = c("djf", "djf","djf","mam", "mam","mam","jja","jja","jja", "son","son","son"),
+                        mm = c(12,1:11)
+                        )
+  seasons
+  str(joind)
+  joind_mnthly <- sqldf("select t1.sd_group, t1.year, t2.season, t2.mm, proportion
+  from joind t1
+  left join
+  seasons t2
+  on t1.season = t2.season
+  order by sd_group, year, mm",
+  drv = "SQLite")
+  str(joind_mnthly)
+  head(joind_mnthly, 24)
+  
+  qc <- subset(joind_mnthly, sd_group == "Central West")
+  png("figures_and_tables/qc_wet_props_central_west.png", width=1200, height=600)
+  plot(row.names(qc), qc$proportion, type = "l")
+  dev.off()
+  dir()
+  write.csv(joind_mnthly, "data/rain_future_prob_wet.csv", row.names = F)
   
 #+end_src
 
@@ -161,15 +254,17 @@
 #+begin_src R :session *shell* :tangle code/drt_historic.R :exports none :eval no
   #### name:drt_historic ####
   # got this from pre-processing of suicide paper
+  ch <- connect2postgres2("ewedb")
   drt  <- dbGetQuery(ch,
-  'select t2.geoid,cast(SD_code as numeric),SD_name,year,month,avg(t1.sum) as avsum,avg(t1.count) as avcount,avg(t1.rain) as avrain, avg(t1.rescaledpctile) as avindex,
+  'select t2.geoid,cast(SDcode07 as numeric) as SD_code,sdname07 as SD_name,year,month,avg(t1.sum) as avsum,avg(t1.count) as avcount,avg(t1.rain) as avrain, avg(t1.rescaledpctile) as avindex,
   case when avg(t1.count) >= 5  then avg(t1.count) else 0 end as threshold
   from bom_grids.rain_NSW_1890_2008_4 as t1 join (
-          select abs_sd.nswsd91.gid as
-          geoid,abs_sd.nswsd91.SD_code,abs_sd.nswsd91.SD_name,bom_grids.grid_NSW.*
-          from abs_sd.nswsd91, bom_grids.grid_NSW
-          where st_intersects(abs_sd.nswsd91.the_geom,bom_grids.grid_NSW.the_geom)
-          order by SD_code,bom_grids.grid_NSW.gid
+          select abs_sd.aussd07.gid as
+          geoid,abs_sd.aussd07.SDcode07, abs_sd.aussd07.SDname07, bom_grids.grid_NSW.*
+          from abs_sd.aussd07, bom_grids.grid_NSW
+          where st_intersects(abs_sd.aussd07.geom,bom_grids.grid_NSW.the_geom)
+           and cast(abs_sd.aussd07.sdcode07 as numeric) < 200
+          order by SDcode07,bom_grids.grid_NSW.gid
   ) as t2 
   on t1.gid=t2.gid
   group by t2.geoid,SD_code,SD_name,year,month
@@ -178,10 +273,23 @@
   str(drt)
   data.frame(table(drt$sd_code))
   
-  # BETTER
-  # FROM 
-  # just go ahead this time
-  recode_sds <- dbGetQuery(ch, "select * from recode_sds")
+  # I aggregate the two north western
+  recode_sds <- read.csv(textConnection(
+  "rownames,sd_code,             tsd,              sd_group
+         1 ,    105,          Sydney,                Sydney
+         2 ,    110,          Hunter,                Hunter
+         3 ,    115,       Illawarra,             Illawarra
+         4 ,    120,  Richmond-Tweed,        Richmond-Tweed
+         5 ,    125, Mid-North Coast,       Mid-North Coast
+         6 ,    130,        Northern,              Northern
+         7 ,    135,   North Western, North and Far Western
+         8 ,    140,    Central West,          Central West
+         9 ,    145,   South Eastern,         South Eastern
+        10 ,    150,    Murrumbidgee,          Murrumbidgee
+        11 ,    155,          Murray,                Murray
+        12 ,    160,        Far West, North and Far Western"),
+  strip.white = T)
+  str(recode_sds )
   
   qc <- sqldf(
   'SELECT sd_group, year, month, avg(avrain) as avrain, avg(avcount) as avcount 
@@ -197,24 +305,26 @@
 #+end_src
 
 ** drought future
-*** COMMENT drt_future
+*** COMMENT rain_future_estimated dry
 #+name:drt_future
 #+begin_src R :session *shell* :tangle code/drt_future.R :exports none :eval no
   #### name:drt_future ####
-  library(sqldf)
   setwd(projdir)
-  rain_future <- read.csv("data/rain_future_prob_dry.csv")
+  rain_future_dry <- read.csv("data/rain_future_prob_dry.csv")
+  rain_future_wet <- read.csv("data/rain_future_prob_wet.csv")
   rain_past <- read.csv("data/drt_historic.csv")
-  str(rain_future)
+  summary(rain_past)
+  # Dry
+  str(rain_future_dry)
   # add a joiner
-  rain_future$year_join <- rain_future$year - 100
-  names(rain_future) <- gsub("year$", "year_future", names(rain_future)) 
+  rain_future_dry$year_join <- rain_future_dry$year - 100
+  names(rain_future_dry) <- gsub("year$", "year_future", names(rain_future_dry)) 
   str(rain_past)
   rain_merge  <- sqldf("select t1.sd_group, year, month, year_future, season, avrain,
     proportion, avrain * proportion as rain_projected
   from rain_past t1
   join
-  rain_future t2
+  rain_future_dry t2
   on t1.year = t2.year_join and t1.month = t2.mm and t1.sd_group = t2.sd_group
   order by t2.sd_group, year, month
   ", drv = "SQLite")
@@ -222,36 +332,131 @@
   head(rain_merge)
   tail(rain_merge)
   
+  # stack these so it appears to be a continuous record
+  paste(names(rain_merge), sep = "", collapse = "', '")
+  past  <- rain_merge[,c('sd_group', 'year', 'month', 'avrain')]
+  future <- rain_merge[,c('sd_group', 'year_future', 'month', 'rain_projected')]
+  names(future) <- names(past)
+  future <- future[future$year > 1999,]
+  
+  head(past); tail(past)
+  head(future,12); tail(future)
+  # TODO there is a discontinuity between the observed avrain at 2000
+  # and the adjusted rain_projected at 2000 because it started being
+  # adjusted in 1990.  I cannot think of a quick fix to have a smooth
+  # transition so will just leave as is.
+  # get avrain 2000 to 2008 from the observed record
+  str(rain_past)
+  present <- rain_past[rain_past$year > 2000 & rain_past$year < 2008,1:4]
+  head(present); tail(present)
+  # and extrapolate from 2008
+  future <- future[future$year > 2007 ,]
+  head(future)
+  rain_merge <- rbind(past, present, future)
+  qc  <- rain_merge[rain_merge$sd_group == 'Central West', ]
+  qc$date <- as.Date(paste(qc$year, qc$month, 1, sep = "-"))
+  miny = 1900
+  maxy = 2100
+  png("figures_and_tables/qc_rain_future_estimated_dry_central_west.png", width = 1200, height = 600)
+  plot(qc[qc$year > miny & qc$year < maxy,"date"],
+       qc[qc$year > miny & qc$year < maxy,"avrain"],
+       type = "b", col = 'grey', pch = 16)
+  lines(lowess(qc[qc$year > miny & qc$year < maxy,"avrain"] ~ qc[qc$year > miny & qc$year < maxy,"date"], f = 0.02))
+  dev.off()
   write.csv(rain_merge, "data/rain_future_estimated_dry.csv", row.names = F)
+#+end_src
+*** COMMENT wet
+#+name:wet
+#+begin_src R :session *shell* :tangle code/drt_future.R :exports none :eval no
+  # Wet
+  str(rain_future_wet)
+  # add a joiner
+  rain_future_wet$year_join <- rain_future_wet$year - 100
+  names(rain_future_wet) <- gsub("year$", "year_future", names(rain_future_wet)) 
+  str(rain_past)
+  rain_merge  <- sqldf("select t1.sd_group, year, month, year_future, season, avrain,
+    proportion, avrain * proportion as rain_projected
+  from rain_past t1
+  join
+  rain_future_wet t2
+  on t1.year = t2.year_join and t1.month = t2.mm and t1.sd_group = t2.sd_group
+  order by t2.sd_group, year, month
+  ", drv = "SQLite")
+  summary(rain_merge)
+  head(rain_merge)
+  tail(rain_merge)
+  
+  # stack these so it appears to be a continuous record
+  paste(names(rain_merge), sep = "", collapse = "', '")
+  past  <- rain_merge[,c('sd_group', 'year', 'month', 'avrain')]
+  future <- rain_merge[,c('sd_group', 'year_future', 'month', 'rain_projected')]
+  names(future) <- names(past)
+  future <- future[future$year > 1999,]
+  
+  head(past); tail(past)
+  head(future,12); tail(future)
+  # TODO there is a discontinuity between the observed avrain at 2000
+  # and the adjusted rain_projected at 2000 because it started being
+  # adjusted in 1990.  I cannot think of a quick fix to have a smooth
+  # transition so will just leave as is.
+  # get avrain 2000 to 2008 from the observed record
+  str(rain_past)
+  present <- rain_past[rain_past$year > 2000 & rain_past$year < 2008,1:4]
+  head(present); tail(present)
+  # and extrapolate from 2008
+  future <- future[future$year > 2007 ,]
+  head(future)
+  rain_merge <- rbind(past, present, future)
+  qc  <- rain_merge[rain_merge$sd_group == 'Central West', ]
+  qc$date <- as.Date(paste(qc$year, qc$month, 1, sep = "-"))
+  miny = 1900
+  maxy = 2100
+  png("figures_and_tables/qc_rain_future_estimated_wet_central_west.png", width = 1200, height = 600)
+  plot(qc[qc$year > miny & qc$year < maxy,"date"],
+       qc[qc$year > miny & qc$year < maxy,"avrain"],
+       type = "b", col = 'grey', pch = 16)
+  lines(lowess(qc[qc$year > miny & qc$year < maxy,"avrain"] ~ qc[qc$year > miny & qc$year < maxy,"date"], f = 0.02))
+  dev.off()
+  write.csv(rain_merge, "data/rain_future_estimated_wet.csv", row.names = F)
+  
 #+end_src
 *** COMMENT drought_future_estimated_dry
 #+name:drought_future_estimated_dry
-#+begin_src R :session *R* :tangle code/droughtIndex_future-test.R :exports none :eval no
-  setwd("report1_high_level/")
+#+begin_src R :session *shell* :tangle code/droughtIndex_future-test.R :exports none :eval no
+  setwd(projdir)
   library(HutchinsonDroughtIndex)
   dat <- read.csv("data/rain_future_estimated_dry.csv", stringsAsFactors = F)
   
   # drop the first year as only half
+  dat  <- dat[dat$year > 1890,]
   names(dat)
   
   head(dat)
-  dat$date <- as.Date(paste(dat$year_future, dat$month, 1, sep = "-"))
+  tail(dat)
+  qc <- sqldf("select sd_group, year, count(*) from dat
+  group by sd_group, year
+  order by count(*) desc", drv = "SQLite")
+  summary(qc)
+  # good
+  dat$date <- as.Date(paste(dat$year, dat$month, 1, sep = "-"))
   
   sds <- names(table(dat$sd_group))
   sds
-  par(mfrow=c(2,6))
+  
+  # I saved a subset of this to a test dataset for developing the fucntion with, transfer to
+  # hutch package
+  
+  # RUN
   sd_drt_out <- matrix(nrow=0,ncol=14)
   for(sd_i in sds){
   #  sd_i <- sds[1]
-  dat2 <- dat[dat$year > 1890 & dat$sd_group == sd_i, c('date','year_future','month','avrain','rain_projected')]
+  dat2 <- dat[dat$sd_group == sd_i,
+              c('date','year','month','avrain')]
   summary(dat2)
-  plot(dat2$date, dat2$avrain, type = "l", col='grey') 
-  lines(dat2$date, dat2$rain_projected, col = 'blue')
-  title(sd_i)
-  nyear <- length(names(table(dat2$year_future)))
+  nyear <- length(names(table(dat2$year)))
   nyear
   
-  sd_drt <- drought_index_future(
+  sd_drt <- drought_index_stations(
     data=dat2
     ,
     years=nyear
@@ -261,6 +466,7 @@
   sd_drt <- data.frame(sd_group = sd_i, sd_drt)
   sd_drt_out <- rbind(sd_drt_out, sd_drt)
   }
+  
   summary(sd_drt_out)
   write.csv(sd_drt_out, "data/drought_future_estimated_dry.csv", row.names = F)
   
