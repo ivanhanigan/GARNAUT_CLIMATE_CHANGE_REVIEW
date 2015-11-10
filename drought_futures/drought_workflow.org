@@ -114,12 +114,12 @@
   data.frame(table(joind$sd_group))
   qc <- subset(joind, sd_group == "North and Far Western")
   head(qc)
-  png("figures_and_tables/qc_dry_props_north_far_west.png")
+  png("graphs/qc_dry_props_north_far_west.png")
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   qc <- subset(joind, sd_group == "Central West")
   head(qc)
-  png("figures_and_tables/qc_dry_props_central_west.png")
+  png("graphs/qc_dry_props_central_west.png")
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   
@@ -140,7 +140,7 @@
   head(joind_mnthly, 24)
   
   qc <- subset(joind_mnthly, sd_group == "Central West")
-  png("figures_and_tables/qc_dry_props_central_west.png", width=1200, height=600)
+  png("graphs/qc_dry_props_central_west.png", width=1200, height=600)
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   dir()
@@ -214,12 +214,12 @@
   data.frame(table(joind$sd_group))
   qc <- subset(joind, sd_group == "North and Far Western")
   head(qc)
-  png("figures_and_tables/qc_wet_props_north_far_west.png")
+  png("graphs/qc_wet_props_north_far_west.png")
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   qc <- subset(joind, sd_group == "Central West")
   head(qc)
-  png("figures_and_tables/qc_wet_props_central_west.png")
+  png("graphs/qc_wet_props_central_west.png")
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   
@@ -240,7 +240,7 @@
   head(joind_mnthly, 24)
   
   qc <- subset(joind_mnthly, sd_group == "Central West")
-  png("figures_and_tables/qc_wet_props_central_west.png", width=1200, height=600)
+  png("graphs/qc_wet_props_central_west.png", width=1200, height=600)
   plot(row.names(qc), qc$proportion, type = "l")
   dev.off()
   dir()
@@ -357,7 +357,7 @@
   qc$date <- as.Date(paste(qc$year, qc$month, 1, sep = "-"))
   miny = 1900
   maxy = 2100
-  png("figures_and_tables/qc_rain_future_estimated_dry_central_west.png", width = 1200, height = 600)
+  png("graphs/qc_rain_future_estimated_dry_central_west.png", width = 1200, height = 600)
   plot(qc[qc$year > miny & qc$year < maxy,"date"],
        qc[qc$year > miny & qc$year < maxy,"avrain"],
        type = "b", col = 'grey', pch = 16)
@@ -411,7 +411,7 @@
   qc$date <- as.Date(paste(qc$year, qc$month, 1, sep = "-"))
   miny = 1900
   maxy = 2100
-  png("figures_and_tables/qc_rain_future_estimated_wet_central_west.png", width = 1200, height = 600)
+  png("graphs/qc_rain_future_estimated_wet_central_west.png", width = 1200, height = 600)
   plot(qc[qc$year > miny & qc$year < maxy,"date"],
        qc[qc$year > miny & qc$year < maxy,"avrain"],
        type = "b", col = 'grey', pch = 16)
@@ -473,3 +473,82 @@
 #+end_src
 
 
+*** qc
+#+begin_src R :session *shell* :tangle code/droughtIndex_future-test.R :exports none :eval no
+  qc <- read.csv("data/drought_future_estimated_dry.csv")
+  sd_i <- "Central West"
+  str(qc)
+  qc$date <- as.Date(qc$date)
+  qc2 <- qc[qc$sd_group == sd_i,]
+  png("graphs/qc_drought_count_central_west.png", width = 1200, height = 600)
+  with(qc2,
+       plot(date, count, type = "l")
+       )
+  dev.off()
+#+end_src
+*** COMMENT drought_future_estimated_wet
+#+name:drought_future_estimated_wet
+#+begin_src R :session *shell* :tangle code/droughtIndex_future-test.R :exports none :eval no
+  setwd(projdir)
+  library(HutchinsonDroughtIndex)
+  dat <- read.csv("data/rain_future_estimated_wet.csv", stringsAsFactors = F)
+  
+  # drop the first year as only half
+  dat  <- dat[dat$year > 1890,]
+  names(dat)
+  
+  head(dat)
+  tail(dat)
+  qc <- sqldf("select sd_group, year, count(*) from dat
+  group by sd_group, year
+  order by count(*) desc", drv = "SQLite")
+  summary(qc)
+  # good
+  dat$date <- as.Date(paste(dat$year, dat$month, 1, sep = "-"))
+  
+  sds <- names(table(dat$sd_group))
+  sds
+  
+  # I saved a subset of this to a test dataset for developing the fucntion with, transfer to
+  # hutch package
+  
+  # RUN
+  sd_drt_out <- matrix(nrow=0,ncol=14)
+  for(sd_i in sds){
+  #  sd_i <- sds[1]
+  dat2 <- dat[dat$sd_group == sd_i,
+              c('date','year','month','avrain')]
+  summary(dat2)
+  nyear <- length(names(table(dat2$year)))
+  nyear
+  
+  sd_drt <- drought_index_stations(
+    data=dat2
+    ,
+    years=nyear
+    ,
+    droughtThreshold=.375
+    )
+  sd_drt <- data.frame(sd_group = sd_i, sd_drt)
+  sd_drt_out <- rbind(sd_drt_out, sd_drt)
+  }
+  
+  summary(sd_drt_out)
+  write.csv(sd_drt_out, "data/drought_future_estimated_wet.csv", row.names = F)
+  
+#+end_src
+
+
+*** qc
+#+begin_src R :session *shell* :tangle code/droughtIndex_future-test.R :exports none :eval no
+  qc <- read.csv("data/drought_future_estimated_wet.csv")
+  sd_i <- "Central West"
+  str(qc)
+  qc$date <- as.Date(qc$date)
+  qc2 <- qc[qc$sd_group == sd_i,]
+  png("graphs/qc_drought_count_central_west_wet.png", width = 1200, height = 600)
+  with(qc2,
+       plot(date, count, type = "l")
+       )
+  dev.off()
+#+end_src

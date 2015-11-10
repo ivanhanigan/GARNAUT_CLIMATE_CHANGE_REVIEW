@@ -1,8 +1,5 @@
 
-#### name:rain future prob ####
-library(reshape)
-library(sqldf)
-
+#### name:rain future prob dry ####  
 indir  <- "~/projects/GARNAUT_CLIMATE_CHANGE_REVIEW/rain/data_derived"
 dir(indir)
 
@@ -21,11 +18,12 @@ str(dat2)
 dat3 <- melt(dat2, c("year","order","season"))
 str(dat3)
 
+# this is just NSW sds
 baseline <- sqldf("select *
 from dat3
 where variable like 'X1%'
   and year = 1990
-")
+", drv = "SQLite")
 names(dat3) <- gsub("order", "ord1", names(dat3))
 head(dat3)
 
@@ -38,6 +36,7 @@ on t1.season = t2.season and t1.variable = t2.variable
 head(joind, 20)
 
 # need to aggregate the two far north west sds (160 + 135)
+# for suicide research
 joind$sd_group <- joind$variable
 joind$sd_group <- gsub("X135",   "North and Far Western", joind$sd_group) 
 joind$sd_group <- gsub("X160",   "North and Far Western", joind$sd_group) 
@@ -63,7 +62,12 @@ head(joind)
 data.frame(table(joind$sd_group))
 qc <- subset(joind, sd_group == "North and Far Western")
 head(qc)
-png("figures_and_tables/qc_dry_props_north_far_west.png")
+png("graphs/qc_dry_props_north_far_west.png")
+plot(row.names(qc), qc$proportion, type = "l")
+dev.off()
+qc <- subset(joind, sd_group == "Central West")
+head(qc)
+png("graphs/qc_dry_props_central_west.png")
 plot(row.names(qc), qc$proportion, type = "l")
 dev.off()
 
@@ -84,7 +88,7 @@ str(joind_mnthly)
 head(joind_mnthly, 24)
 
 qc <- subset(joind_mnthly, sd_group == "Central West")
-png("figures_and_tables/qc_dry_props_central_west.png")
+png("graphs/qc_dry_props_central_west.png", width=1200, height=600)
 plot(row.names(qc), qc$proportion, type = "l")
 dev.off()
 dir()

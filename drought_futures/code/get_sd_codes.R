@@ -1,8 +1,8 @@
 
 #### name:get_sd_codes ####
 library(rpostgrestools)
-ch <- connect2postgres2("postgis_hanigan")
-
+ch <- connect2postgres2("gislibrary")
+pgListTables(ch, "abs_sd")
 sd  <- dbGetQuery(ch, "select sdcode07, sdname07
 from abs_sd.aussd07
 where sdcode07 < '200'")
